@@ -842,16 +842,6 @@ def selfharm_detection():
 
     args.action_score_thr = 0.7
 
-    h, w, _ = frames[0].shape
-
-    tmp_dir = tempfile.TemporaryDirectory()
-
-        # resize frames to shortside 256
-    new_w, new_h = mmcv.rescale_size((w, h), (256, np.Inf))
-    frames = [mmcv.imresize(img, (new_w, new_h)) for img in frames]
-    w_ratio, h_ratio = new_w / w, new_h / h
-
-
     # Load spatio-temporal detection label_map
     stdet_label_map = load_label_map(args.label_map_stdet)
     rgb_stdet_config = mmengine.Config.fromfile(args.rgb_stdet_config)
@@ -907,6 +897,16 @@ def selfharm_detection():
         #pose_result를 받아오는데 오류가 생기는데 문제 해결을 못했습니다.
         modified_results, person_bboxes, pose_results, frames = detect_m()
         long_result_dic = {}
+
+
+        h, w, _ = frames[0].shape
+
+        # resize frames to shortside 256
+        new_w, new_h = mmcv.rescale_size((w, h), (256, np.Inf))
+        frames = [mmcv.imresize(img, (new_w, new_h)) for img in frames]
+        w_ratio, h_ratio = new_w / w, new_h / h
+
+
         #ACTION DETECTION
         #pose는 30frame 사용
         print('Use skeleton-based recognition')
@@ -944,32 +944,35 @@ def selfharm_detection():
 
 
 def main():
+    # selfharm_detection()
     args = parse_args()
+    root_path = '/selfharm_PLASS/'
 
     #필요한 루트
-    args.video = '/workspace/police_lab/mmaction2_mhncity/demo/demo.mp4'
-    args.out_filename = '/workspace/police_lab/mmaction2_mhncity/demo/result/demo.mp4'
+    args.video = root_path + 'demo/demo.mp4'
+    args.out_filename = root_path + 'demo/result/demo.mp4'
 
     # args.video = '/workspace/police_lab/mmaction2_mhncity/demo/video/selfharm_day_1018_blue_wsh-25of60.mp4'
     # args.out_filename = '/workspace/police_lab/mmaction2_mhncity/demo/result/selfharm_day_1018_blue_wsh-25of60.mp4'
 
-    args.rgb_stdet_config = '/workspace/police_lab/mmaction2_mhncity/work_dirs/demo_rgbposec3d/rgb_only_custom.py'
-    args.rgb_stdet_checkpoint = '/workspace/police_lab/mmaction2_mhncity/work_dirs/demo_rgbposec3d/rgb_best_acc_top1_epoch_17.pth'
-    args.skeleton_config = '/workspace/police_lab/mmaction2_mhncity/work_dirs/demo_rgbposec3d/pose_only_custom.py'
-    args.skeleton_checkpoint = '/workspace/police_lab/mmaction2_mhncity/work_dirs/demo_rgbposec3d/pose_best_acc_top1_epoch_17.pth'
+    args.rgb_stdet_config = root_path + 'work_dirs/demo_rgbposec3d/rgb_only_custom.py'
+    args.rgb_stdet_checkpoint = root_path + 'work_dirs/demo_rgbposec3d/rgb_best_acc_top1_epoch_17.pth'
+    args.skeleton_config = root_path + 'work_dirs/demo_rgbposec3d/pose_only_custom.py'
+    args.skeleton_checkpoint = root_path + 'work_dirs/demo_rgbposec3d/pose_best_acc_top1_epoch_17.pth'
     args.use_skeleton_recog = True
+    
     #사람 탐지
-    args.det_config = '/workspace/police_lab/mmaction2_mhncity/demo/demo_configs/faster-rcnn_r50_fpn_2x_coco_infer.py'
+    args.det_config = root_path + 'demo/demo_configs/faster-rcnn_r50_fpn_2x_coco_infer.py'
     args.det_checkpoint = 'http://download.openmmlab.com/mmdetection/v2.0/faster_rcnn/faster_rcnn_r50_fpn_2x_coco/faster_rcnn_r50_fpn_2x_coco_bbox_mAP-0.384_20200504_210434-a5d8aa15.pth'
     
     #스켈레톤 추출
-    args.pose_config = '/workspace/police_lab/mmaction2_mhncity/demo/demo_configs/td-hm_hrnet-w32_8xb64-210e_coco-256x192_infer.py'
+    args.pose_config = root_path + 'demo/demo_configs/td-hm_hrnet-w32_8xb64-210e_coco-256x192_infer.py'
     args.pose_checkpoint = 'https://download.openmmlab.com/mmpose/top_down/hrnet/hrnet_w32_coco_256x192-c78dce93_20200708.pth'
     args.use_skeleton_recog = True
 
 
-    args.label_map_stdet = '/workspace/police_lab/mmaction2_mhncity/demo/label_map_c2_stdet.txt'
-    args.label_map = '/workspace/police_lab/mmaction2_mhncity/demo/label_map_c2.txt'
+    args.label_map_stdet = root_path + 'demo/label_map_c2_stdet.txt'
+    args.label_map = root_path + 'demo/label_map_c2.txt'
 
     args.action_score_thr = 0.7
 
