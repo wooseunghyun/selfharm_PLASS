@@ -755,9 +755,9 @@ def rgb_based_stdet(args, frames, label_map, human_detections, w, h, new_w,
             
             #selfharm에 대한 score가 일정수준 이상일 경우 selfharm으로 판단
             if scores[1] > args.action_score_thr:
-                prediction.append(label_map[1])
+                prediction.append(label_map[2])
             else:
-                prediction.append(label_map[0])
+                prediction.append(label_map[1])
         predictions.append(prediction)
 
         prog_bar.update()
@@ -817,9 +817,9 @@ def rgb_based_stdet_m(args, frames, label_map, human_detections, w, h, new_w,
         
         #selfharm에 대한 score가 일정수준 이상일 경우 selfharm으로 판단
         if scores[1] > args.action_score_thr:
-            result_dic[key] = label_map[1]
+            result_dic[key] = label_map[2]
         else:
-            result_dic[key] = label_map[0]
+            result_dic[key] = label_map[1]
 
 
     return result_dic
@@ -828,19 +828,23 @@ def rgb_based_stdet_m(args, frames, label_map, human_detections, w, h, new_w,
 #rgb = 8frame, pose = 30frame
 def selfharm_detection():
     args = parse_args()
-    args.video = '/workspace/police_lab/mmaction2_mhncity/demo/video/selfharm_day_1018_blue_wsh-25of60.mp4'
-    args.out_filename = '/workspace/police_lab/mmaction2_mhncity/demo/result/selfharm_day_1018_blue_wsh-25of60.mp4'
+    root_path = '/selfharm_PLASS/'
 
-    args.rgb_stdet_config = '/workspace/police_lab/mmaction2_mhncity/work_dirs/demo_rgbposec3d/rgb_only_custom.py'
-    args.rgb_stdet_checkpoint = '/workspace/police_lab/mmaction2_mhncity/work_dirs/demo_rgbposec3d/rgb_best_acc_top1_epoch_17.pth'
-    args.skeleton_config = '/workspace/police_lab/mmaction2_mhncity/work_dirs/demo_rgbposec3d/pose_only_custom.py'
-    args.skeleton_checkpoint = '/workspace/police_lab/mmaction2_mhncity/work_dirs/demo_rgbposec3d/pose_best_acc_top1_epoch_17.pth'
+    #필요한 루트
+    args.video = root_path + 'demo/demo.mp4'
+    args.out_filename = root_path + 'demo/result/demo.mp4'
+
+    # args.video = '/workspace/police_lab/mmaction2_mhncity/demo/video/selfharm_day_1018_blue_wsh-25of60.mp4'
+    # args.out_filename = '/workspace/police_lab/mmaction2_mhncity/demo/result/selfharm_day_1018_blue_wsh-25of60.mp4'
+
+    args.rgb_stdet_config = root_path + 'work_dirs/demo_rgbposec3d/rgb_only_custom.py'
+    args.rgb_stdet_checkpoint = root_path + 'work_dirs/demo_rgbposec3d/rgb_best_acc_top1_epoch_17.pth'
+    args.skeleton_config = root_path + 'work_dirs/demo_rgbposec3d/pose_only_custom.py'
+    args.skeleton_checkpoint = root_path + 'work_dirs/demo_rgbposec3d/pose_best_acc_top1_epoch_17.pth'
     args.use_skeleton_recog = True
 
-    args.label_map_stdet = '/workspace/police_lab/mmaction2_mhncity/demo/label_map_c2_stdet.txt'
-    args.label_map = '/workspace/police_lab/mmaction2_mhncity/demo/label_map_c2.txt'
-
-    args.action_score_thr = 0.7
+    args.label_map_stdet = root_path + 'demo/label_map_c2_stdet.txt'
+    args.label_map = root_path + 'demo/label_map_c2.txt'
 
     # Load spatio-temporal detection label_map
     stdet_label_map = load_label_map(args.label_map_stdet)
@@ -1055,31 +1059,31 @@ def main():
                                                   new_w, new_h, w_ratio,
                                                   h_ratio)
 
-    stdet_results = []
-    for timestamp, prediction in zip(timestamps, stdet_preds):
-        human_detection = human_detections[timestamp - 1]
-        stdet_results.append(
-            pack_result(human_detection, prediction, new_h, new_w))
+    # stdet_results = []
+    # for timestamp, prediction in zip(timestamps, stdet_preds):
+    #     human_detection = human_detections[timestamp - 1]
+    #     stdet_results.append(
+    #         pack_result(human_detection, prediction, new_h, new_w))
 
-    def dense_timestamps(timestamps, n):
-        """Make it nx frames."""
-        old_frame_interval = (timestamps[1] - timestamps[0])
-        start = timestamps[0] - old_frame_interval / n * (n - 1) / 2
-        new_frame_inds = np.arange(
-            len(timestamps) * n) * old_frame_interval / n + start
-        return new_frame_inds.astype(np.int64)
+    # def dense_timestamps(timestamps, n):
+    #     """Make it nx frames."""
+    #     old_frame_interval = (timestamps[1] - timestamps[0])
+    #     start = timestamps[0] - old_frame_interval / n * (n - 1) / 2
+    #     new_frame_inds = np.arange(
+    #         len(timestamps) * n) * old_frame_interval / n + start
+    #     return new_frame_inds.astype(np.int64)
 
-    dense_n = int(args.predict_stepsize / args.output_stepsize)
-    output_timestamps = dense_timestamps(timestamps, dense_n)
-    frames = [
-        cv2.imread(frame_paths[timestamp - 1])
-        for timestamp in output_timestamps
-    ]
+    # dense_n = int(args.predict_stepsize / args.output_stepsize)
+    # output_timestamps = dense_timestamps(timestamps, dense_n)
+    # frames = [
+    #     cv2.imread(frame_paths[timestamp - 1])
+    #     for timestamp in output_timestamps
+    # ]
 
-    if args.use_skeleton_recog or args.use_skeleton_stdet:
-        pose_datasample = [
-            pose_datasample[timestamp - 1] for timestamp in output_timestamps
-        ]
+    # if args.use_skeleton_recog or args.use_skeleton_stdet:
+    #     pose_datasample = [
+    #         pose_datasample[timestamp - 1] for timestamp in output_timestamps
+    #     ]
 
     # vis_frames = visualize(args, frames, stdet_results, pose_datasample,
     #                        action_result)
