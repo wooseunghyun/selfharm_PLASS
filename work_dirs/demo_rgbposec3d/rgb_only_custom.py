@@ -80,30 +80,21 @@ train_pipeline = [
     dict(type='FormatShape', input_format='NCTHW'),
     dict(type='PackActionInputs'),
 ]
-file_client_args = dict(io_backend='disk')
 val_pipeline = [
     dict(
-        type='SampleAVAFrames', clip_len=32, frame_interval=2, test_mode=True),
-    dict(type='RawFrameDecode', **file_client_args),
-    dict(type='Resize', scale=(-1, 256)),
-    dict(type='FormatShape', input_format='NCTHW', collapse=True),
-    dict(type='PackActionInputs')
+        type='MMUniformSampleFrames',
+        clip_len=dict(RGB=8),
+        num_clips=1,
+        test_mode=True),
+    dict(type='MMDecode'),
+    dict(type='MMCompact', hw_ratio=1.0, allow_imgpad=True),
+    dict(type='Resize', scale=(
+        224,
+        224,
+    ), keep_ratio=False),
+    dict(type='FormatShape', input_format='NCTHW'),
+    dict(type='PackActionInputs'),
 ]
-# val_pipeline = [
-#     dict(
-#         type='MMUniformSampleFrames',
-#         clip_len=dict(RGB=8),
-#         num_clips=1,
-#         test_mode=True),
-#     dict(type='MMDecode'),
-#     dict(type='MMCompact', hw_ratio=1.0, allow_imgpad=True),
-#     dict(type='Resize', scale=(
-#         224,
-#         224,
-#     ), keep_ratio=False),
-#     dict(type='FormatShape', input_format='NCTHW'),
-#     dict(type='PackActionInputs'),
-# ]
 test_pipeline = [
     dict(
         type='MMUniformSampleFrames',
