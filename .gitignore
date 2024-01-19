@@ -120,7 +120,7 @@ venv.bak/
 *.pkl.json
 *.log.json
 benchlist.txt
-/projects/*/work_dirs
+# /projects/*/work_dirs
 /projects/*/data
 .DS_Store
 
