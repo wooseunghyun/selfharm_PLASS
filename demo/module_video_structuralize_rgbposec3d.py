@@ -898,7 +898,7 @@ def selfharm_detection():
     
     while True:
         #이런식으로 호출하면 30frame 관련 데이터를 받을 수 있어야 할 것 같아요.
-        #pose_result를 받아오는데 오류가 생기는데 문제 해결을 못했습니다.
+        #mhncity에서 주신 모듈을 붙여서 pose_result를 받아오는데 환경충돌 오류가 생기는데 문제 해결을 못했습니다.
         modified_results, person_bboxes, pose_results, frames = detect_m()
         long_result_dic = {}
 
