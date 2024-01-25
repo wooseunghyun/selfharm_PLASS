@@ -755,9 +755,9 @@ def rgb_based_stdet(args, frames, label_map, human_detections, w, h, new_w,
             
             #selfharm에 대한 score가 일정수준 이상일 경우 selfharm으로 판단
             if scores[1] > args.action_score_thr:
-                prediction.append(label_map[2])
-            else:
                 prediction.append(label_map[1])
+            else:
+                prediction.append(label_map[0])
         predictions.append(prediction)
 
         prog_bar.update()
@@ -896,12 +896,12 @@ def selfharm_detection():
     skeleton_model = init_recognizer(
         skeleton_config, args.skeleton_checkpoint, device=args.device)
     
+    long_result_dic = {}
+
     while True:
         #이런식으로 호출하면 30frame 관련 데이터를 받을 수 있어야 할 것 같아요.
         #mhncity에서 주신 모듈을 붙여서 pose_result를 받아오는데 환경충돌 오류가 생기는데 문제 해결을 못했습니다.
         modified_results, person_bboxes, pose_results, frames = detect_m()
-        long_result_dic = {}
-
 
         h, w, _ = frames[0].shape
 
@@ -950,7 +950,7 @@ def selfharm_detection():
 def main():
     # selfharm_detection()
     args = parse_args()
-    root_path = '/selfharm_PLASS/'
+    root_path = '/workspace/police_lab/mmaction2_mhncity/'
 
     #필요한 루트
     args.video = root_path + 'demo/demo.mp4'
