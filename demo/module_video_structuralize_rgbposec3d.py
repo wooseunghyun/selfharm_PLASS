@@ -950,7 +950,7 @@ def selfharm_detection():
 def main():
     # selfharm_detection()
     args = parse_args()
-    root_path = '/workspace/police_lab/mmaction2_mhncity/'
+    root_path = '/selfharm_PLASS/'
 
     #필요한 루트
     args.video = root_path + 'demo/demo.mp4'
