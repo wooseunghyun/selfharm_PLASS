@@ -40,7 +40,25 @@ pose의 pth파일 [GoogleDrive](https://drive.google.com/file/d/1hfvHrenziejJyLP
 rgb의 pth파일 [GoogleDrive](https://drive.google.com/file/d/1aI0K3M5r1K4tk2x9-s5hsbdPE8miW6_h/view?usp=sharing)
 
 
-### 3. 모듈 실행
+### 3. mhncity 공유 mmaction2를 내부에 다운 받기
+
+mhncity 공유 mmaction2.zip [GoogleDrive](https://drive.google.com/file/d/1OK1Gj_h55qBv5P1_2tUK6AaFlNswGvV4/view?usp=sharing)을 내부에 다운 받아 아래와 같이 폴더를 위치시키기
+
+```
+selfharm_PLASS
+└── mmaction2
+```
+
+selfharm_PLASS/mmaction2/demo/tracking_skeleton_ori.py의 파일을 tracking_skeleton_ori.py[GoogleDrive](https://drive.google.com/file/d/16HLt_xN0FEPLWpenVRTv6o2aSe9_l4qD/view?usp=sharing) 와 바꾸기
+
+import 중 module이름을 찾을 수 없다는 오류가 발생할 경우 
+```
+from mmaction2.BoTSORT.yolov7.utils.plots
+```
+와 같이 경로에 mmaction2를 추가
+
+
+### 4. 모듈 실행
 
 ```
   python ./demo/module_video_structuralize_rgbposec3d.py
