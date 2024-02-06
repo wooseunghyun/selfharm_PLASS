@@ -32,7 +32,7 @@ except ImportError:
 #추가
 from pathlib import Path
 from PIL import Image
-# from tracking_skeleton import detect_m
+from mmaction2.demo.tracking_skeleton_ori import detect_m
 
 FONTFACE = cv2.FONT_HERSHEY_DUPLEX
 FONTSCALE = 0.5
@@ -411,7 +411,7 @@ def skeleton_based_action_recognition(args, pose_results, h, w):
 
     return results
 
-
+#to get skeleton based action recognition based on tracking id
 def skeleton_based_action_recognition_m(args, pose_results, h, w, skeleton_model, modified_results):
     label_map = [x.strip() for x in open(args.label_map).readlines()]
     num_class = len(label_map)
@@ -429,7 +429,7 @@ def skeleton_based_action_recognition_m(args, pose_results, h, w, skeleton_model
             person = 0
             #몇번쨰 사람인지 확인
             id = 0
-            for person_id in len(modified_results[frame_idx]):
+            for person_id in range(len(modified_results[frame_idx])):
                 if modified_results[frame_idx][person_id][5] == 0.0:
                     if bbox_idx == person:
                         id = modified_results[frame_idx][person_id][0]
@@ -499,7 +499,7 @@ def crop_and_normalize_images_array(image_array, bounding_boxes, target_size=(25
 
     return np.array(crop_frames)
 
-
+#to get crop img for traing id based rgb action recognition 
 def crop_and_normalize_images_array_m(image_array, bounding_boxes, target_size=(340,256)):
     #frame 마다
     person_dic = {}
@@ -678,8 +678,7 @@ def rgb_based_stdet(args, frames, label_map, human_detections, w, h, new_w,
         pass
 
     rgb_stdet_config.model.backbone.pretrained = None
-    rgb_stdet_model = init_detector(
-        rgb_stdet_config, args.rgb_stdet_checkpoint, device=args.device)
+    rgb_stdet_model = init_detector(rgb_stdet_config, args.rgb_stdet_checkpoint, device=args.device)
 
     predictions = []
 
@@ -755,9 +754,9 @@ def rgb_based_stdet(args, frames, label_map, human_detections, w, h, new_w,
             
             #selfharm에 대한 score가 일정수준 이상일 경우 selfharm으로 판단
             if scores[1] > args.action_score_thr:
-                prediction.append(label_map[1])
+                prediction.append(label_map[2])
             else:
-                prediction.append(label_map[0])
+                prediction.append(label_map[1])
         predictions.append(prediction)
 
         prog_bar.update()
@@ -766,6 +765,7 @@ def rgb_based_stdet(args, frames, label_map, human_detections, w, h, new_w,
 
 #for module
 #frames는 len 8
+#get rgb action recognition results based tracking id
 def rgb_based_stdet_m(args, frames, label_map, human_detections, w, h, new_w,
                     new_h, w_ratio, h_ratio, rgb_stdet_model, img_norm_cfg, modified_results):
 
@@ -775,6 +775,7 @@ def rgb_based_stdet_m(args, frames, label_map, human_detections, w, h, new_w,
     # for timestamp, proposal in zip(timestamps, human_detections):
 
     proposal = human_detections[0]
+    proposal = np.array(proposal)
     if proposal.shape[0] == 0:
         predictions.append(None)
         return predictions  
@@ -824,9 +825,34 @@ def rgb_based_stdet_m(args, frames, label_map, human_detections, w, h, new_w,
 
     return result_dic
 
+#getter to get results with the 30frames of tracking skeleton ori results  
+counter = 0
+modified_results, person_bboxes, face_bboxes, pose_results, frames = [], [], [], [], []
+def get_detect_m():
+    global counter, modified_results, person_bboxes, face_bboxes, pose_results, frames
+
+    clip_len = 30
+    frame_len = len(frames)
+
+    if frame_len <=0:
+        #detect_m(): get tracking skeleton ori results
+        modified_results, person_bboxes, face_bboxes, pose_results, frames = detect_m()
+        counter = 0
+        frame_len = len(frames)
+    
+    if counter+clip_len>= frame_len:
+        return False
+
+    return (modified_results[counter:counter+clip_len], person_bboxes[counter:counter+clip_len], pose_results[counter:counter+clip_len], frames[counter:counter+clip_len])
+
+
+
+#detect selfharm based on tracking id
 #person_bboxes [id, bbox]
 #rgb = 8frame, pose = 30frame
 def selfharm_detection():
+    global counter
+
     args = parse_args()
     root_path = '/selfharm_PLASS/'
 
@@ -853,10 +879,8 @@ def selfharm_detection():
     try:
         if rgb_stdet_config['data']['train']['custom_classes'] is not None:
             stdet_label_map = {
-                id + 1: stdet_label_map[cls]
-                for id, cls in enumerate(rgb_stdet_config['data']['train']
-                                         ['custom_classes'])
-            }
+                id + 1: stdet_label_map[cls] for id, cls in enumerate(rgb_stdet_config['data']['train']['custom_classes'])                                  
+                }
     except KeyError:
         pass
 
@@ -899,14 +923,18 @@ def selfharm_detection():
     long_result_dic = {}
 
     while True:
-        #이런식으로 호출하면 30frame 관련 데이터를 받을 수 있어야 할 것 같아요.
-        #mhncity에서 주신 모듈을 붙여서 pose_result를 받아오는데 환경충돌 오류가 생기는데 문제 해결을 못했습니다.
-        modified_results, person_bboxes, pose_results, frames = detect_m()
+        result = get_detect_m()
+        if result is False:
+            break
+        else:
+            modified_results, person_bboxes, pose_results, frames = result
+
+        counter +=1
 
         h, w, _ = frames[0].shape
 
-        # resize frames to shortside 256
-        new_w, new_h = mmcv.rescale_size((w, h), (256, np.Inf))
+        
+        new_w, new_h = mmcv.rescale_size((w, h), (w, np.Inf))
         frames = [mmcv.imresize(img, (new_w, new_h)) for img in frames]
         w_ratio, h_ratio = new_w / w, new_h / h
 
@@ -948,149 +976,154 @@ def selfharm_detection():
 
 
 def main():
-    # selfharm_detection()
-    args = parse_args()
-    root_path = '/selfharm_PLASS/'
-
-    #필요한 루트
-    args.video = root_path + 'demo/demo.mp4'
-    args.out_filename = root_path + 'demo/result/demo.mp4'
-
-    # args.video = '/workspace/police_lab/mmaction2_mhncity/demo/video/selfharm_day_1018_blue_wsh-25of60.mp4'
-    # args.out_filename = '/workspace/police_lab/mmaction2_mhncity/demo/result/selfharm_day_1018_blue_wsh-25of60.mp4'
-
-    args.rgb_stdet_config = root_path + 'work_dirs/demo_rgbposec3d/rgb_only_custom.py'
-    args.rgb_stdet_checkpoint = root_path + 'work_dirs/demo_rgbposec3d/rgb_best_acc_top1_epoch_17.pth'
-    args.skeleton_config = root_path + 'work_dirs/demo_rgbposec3d/pose_only_custom.py'
-    args.skeleton_checkpoint = root_path + 'work_dirs/demo_rgbposec3d/pose_best_acc_top1_epoch_17.pth'
-    args.use_skeleton_recog = True
-    
-    #사람 탐지
-    args.det_config = root_path + 'demo/demo_configs/faster-rcnn_r50_fpn_2x_coco_infer.py'
-    args.det_checkpoint = 'http://download.openmmlab.com/mmdetection/v2.0/faster_rcnn/faster_rcnn_r50_fpn_2x_coco/faster_rcnn_r50_fpn_2x_coco_bbox_mAP-0.384_20200504_210434-a5d8aa15.pth'
-    
-    #스켈레톤 추출
-    args.pose_config = root_path + 'demo/demo_configs/td-hm_hrnet-w32_8xb64-210e_coco-256x192_infer.py'
-    args.pose_checkpoint = 'https://download.openmmlab.com/mmpose/top_down/hrnet/hrnet_w32_coco_256x192-c78dce93_20200708.pth'
-    args.use_skeleton_recog = True
+    mode = 'id'
+    if mode == 'id':
+        selfharm_detection()
+    else:
 
 
-    args.label_map_stdet = root_path + 'demo/label_map_c2_stdet.txt'
-    args.label_map = root_path + 'demo/label_map_c2.txt'
+        args = parse_args()
+        root_path = '/selfharm_PLASS/'
 
-    args.action_score_thr = 0.7
+        #필요한 루트
+        args.video = root_path + 'demo/demo.mp4'
+        args.out_filename = root_path + 'demo/result/demo.mp4'
 
-    tmp_dir = tempfile.TemporaryDirectory()
+        # args.video = '/workspace/police_lab/mmaction2_mhncity/demo/video/selfharm_day_1018_blue_wsh-25of60.mp4'
+        # args.out_filename = '/workspace/police_lab/mmaction2_mhncity/demo/result/selfharm_day_1018_blue_wsh-25of60.mp4'
+
+        args.rgb_stdet_config = root_path + 'work_dirs/demo_rgbposec3d/rgb_only_custom.py'
+        args.rgb_stdet_checkpoint = root_path + 'work_dirs/demo_rgbposec3d/rgb_best_acc_top1_epoch_17.pth'
+        args.skeleton_config = root_path + 'work_dirs/demo_rgbposec3d/pose_only_custom.py'
+        args.skeleton_checkpoint = root_path + 'work_dirs/demo_rgbposec3d/pose_best_acc_top1_epoch_17.pth'
+        args.use_skeleton_recog = True
         
-    frame_paths, original_frames = frame_extract(
-        args.video, out_dir=tmp_dir.name)
-    num_frame = len(frame_paths)
-    h, w, _ = original_frames[0].shape
+        #사람 탐지
+        args.det_config = root_path + 'demo/demo_configs/faster-rcnn_r50_fpn_2x_coco_infer.py'
+        args.det_checkpoint = 'http://download.openmmlab.com/mmdetection/v2.0/faster_rcnn/faster_rcnn_r50_fpn_2x_coco/faster_rcnn_r50_fpn_2x_coco_bbox_mAP-0.384_20200504_210434-a5d8aa15.pth'
+        
+        #스켈레톤 추출
+        args.pose_config = root_path + 'demo/demo_configs/td-hm_hrnet-w32_8xb64-210e_coco-256x192_infer.py'
+        args.pose_checkpoint = 'https://download.openmmlab.com/mmpose/top_down/hrnet/hrnet_w32_coco_256x192-c78dce93_20200708.pth'
+        args.use_skeleton_recog = True
 
-    # Get Human detection results and pose results
-    human_detections, _ = detection_inference(
-        args.det_config,
-        args.det_checkpoint,
-        frame_paths,
-        args.det_score_thr,
-        device=args.device)
-    pose_datasample = None
-    if args.use_skeleton_recog or args.use_skeleton_stdet:
-        pose_results, pose_datasample = pose_inference(
-            args.pose_config,
-            args.pose_checkpoint,
+
+        args.label_map_stdet = root_path + 'demo/label_map_c2_stdet.txt'
+        args.label_map = root_path + 'demo/label_map_c2.txt'
+
+        args.action_score_thr = 0.7
+
+        tmp_dir = tempfile.TemporaryDirectory()
+            
+        frame_paths, original_frames = frame_extract(
+            args.video, out_dir=tmp_dir.name)
+        num_frame = len(frame_paths)
+        h, w, _ = original_frames[0].shape
+
+        # Get Human detection results and pose results
+        human_detections, _ = detection_inference(
+            args.det_config,
+            args.det_checkpoint,
             frame_paths,
-            human_detections,
+            args.det_score_thr,
             device=args.device)
+        pose_datasample = None
+        if args.use_skeleton_recog or args.use_skeleton_stdet:
+            pose_results, pose_datasample = pose_inference(
+                args.pose_config,
+                args.pose_checkpoint,
+                frame_paths,
+                human_detections,
+                device=args.device)
 
-    # resize frames to shortside 256
-    new_w, new_h = mmcv.rescale_size((w, h), (256, np.Inf))
-    frames = [mmcv.imresize(img, (new_w, new_h)) for img in original_frames]
-    w_ratio, h_ratio = new_w / w, new_h / h
+        # resize frames to shortside 256
+        new_w, new_h = mmcv.rescale_size((w, h), (256, np.Inf))
+        frames = [mmcv.imresize(img, (new_w, new_h)) for img in original_frames]
+        w_ratio, h_ratio = new_w / w, new_h / h
 
-    # Load spatio-temporal detection label_map
-    stdet_label_map = load_label_map(args.label_map_stdet)
-    rgb_stdet_config = mmengine.Config.fromfile(args.rgb_stdet_config)
-    rgb_stdet_config.merge_from_dict(args.cfg_options)
-    try:
-        if rgb_stdet_config['data']['train']['custom_classes'] is not None:
-            stdet_label_map = {
-                id + 1: stdet_label_map[cls]
-                for id, cls in enumerate(rgb_stdet_config['data']['train']
-                                         ['custom_classes'])
-            }
-    except KeyError:
-        pass
+        # Load spatio-temporal detection label_map
+        stdet_label_map = load_label_map(args.label_map_stdet)
+        rgb_stdet_config = mmengine.Config.fromfile(args.rgb_stdet_config)
+        rgb_stdet_config.merge_from_dict(args.cfg_options)
+        try:
+            if rgb_stdet_config['data']['train']['custom_classes'] is not None:
+                stdet_label_map = {
+                    id + 1: stdet_label_map[cls]
+                    for id, cls in enumerate(rgb_stdet_config['data']['train']
+                                            ['custom_classes'])
+                }
+        except KeyError:
+            pass
 
-    action_result = None
-    if args.use_skeleton_recog:
-        print('Use skeleton-based recognition')
-        action_result = skeleton_based_action_recognition(
-            args, pose_results, h, w)
-    else:
-        print('Use rgb-based recognition')
-        action_result = rgb_based_action_recognition(args)
+        action_result = None
+        if args.use_skeleton_recog:
+            print('Use skeleton-based recognition')
+            action_result = skeleton_based_action_recognition(
+                args, pose_results, h, w)
+        else:
+            print('Use rgb-based recognition')
+            action_result = rgb_based_action_recognition(args)
 
-    stdet_preds = None
-    if args.use_skeleton_stdet:
-        print('Use skeleton-based SpatioTemporal Action Detection')
-        clip_len, frame_interval = 30, 1
-        timestamps, stdet_preds = skeleton_based_stdet(args, stdet_label_map,
-                                                       human_detections,
-                                                       pose_results, num_frame,
-                                                       clip_len,
-                                                       frame_interval, h, w)
-        for i in range(len(human_detections)):
-            det = human_detections[i]
-            det[:, 0:4:2] *= w_ratio
-            det[:, 1:4:2] *= h_ratio
-            human_detections[i] = torch.from_numpy(det[:, :4]).to(args.device)
+        stdet_preds = None
+        if args.use_skeleton_stdet:
+            print('Use skeleton-based SpatioTemporal Action Detection')
+            clip_len, frame_interval = 30, 1
+            timestamps, stdet_preds = skeleton_based_stdet(args, stdet_label_map,
+                                                        human_detections,
+                                                        pose_results, num_frame,
+                                                        clip_len,
+                                                        frame_interval, h, w)
+            for i in range(len(human_detections)):
+                det = human_detections[i]
+                det[:, 0:4:2] *= w_ratio
+                det[:, 1:4:2] *= h_ratio
+                human_detections[i] = torch.from_numpy(det[:, :4]).to(args.device)
 
-    else:
-        print('Use rgb-based SpatioTemporal Action Detection')
-        for i in range(len(human_detections)):
-            det = human_detections[i]
-            det[:, 0:4:2] *= w_ratio
-            det[:, 1:4:2] *= h_ratio
-            human_detections[i] = torch.from_numpy(det[:, :4]).to(args.device)
-        timestamps, stdet_preds = rgb_based_stdet(args, frames,
-                                                  stdet_label_map,
-                                                  human_detections, w, h,
-                                                  new_w, new_h, w_ratio,
-                                                  h_ratio)
+        else:
+            print('Use rgb-based SpatioTemporal Action Detection')
+            for i in range(len(human_detections)):
+                det = human_detections[i]
+                det[:, 0:4:2] *= w_ratio
+                det[:, 1:4:2] *= h_ratio
+                human_detections[i] = torch.from_numpy(det[:, :4]).to(args.device)
+            timestamps, stdet_preds = rgb_based_stdet(args, frames,
+                                                    stdet_label_map,
+                                                    human_detections, w, h,
+                                                    new_w, new_h, w_ratio,
+                                                    h_ratio)
 
-    # stdet_results = []
-    # for timestamp, prediction in zip(timestamps, stdet_preds):
-    #     human_detection = human_detections[timestamp - 1]
-    #     stdet_results.append(
-    #         pack_result(human_detection, prediction, new_h, new_w))
+        # stdet_results = []
+        # for timestamp, prediction in zip(timestamps, stdet_preds):
+        #     human_detection = human_detections[timestamp - 1]
+        #     stdet_results.append(
+        #         pack_result(human_detection, prediction, new_h, new_w))
 
-    # def dense_timestamps(timestamps, n):
-    #     """Make it nx frames."""
-    #     old_frame_interval = (timestamps[1] - timestamps[0])
-    #     start = timestamps[0] - old_frame_interval / n * (n - 1) / 2
-    #     new_frame_inds = np.arange(
-    #         len(timestamps) * n) * old_frame_interval / n + start
-    #     return new_frame_inds.astype(np.int64)
+        # def dense_timestamps(timestamps, n):
+        #     """Make it nx frames."""
+        #     old_frame_interval = (timestamps[1] - timestamps[0])
+        #     start = timestamps[0] - old_frame_interval / n * (n - 1) / 2
+        #     new_frame_inds = np.arange(
+        #         len(timestamps) * n) * old_frame_interval / n + start
+        #     return new_frame_inds.astype(np.int64)
 
-    # dense_n = int(args.predict_stepsize / args.output_stepsize)
-    # output_timestamps = dense_timestamps(timestamps, dense_n)
-    # frames = [
-    #     cv2.imread(frame_paths[timestamp - 1])
-    #     for timestamp in output_timestamps
-    # ]
+        # dense_n = int(args.predict_stepsize / args.output_stepsize)
+        # output_timestamps = dense_timestamps(timestamps, dense_n)
+        # frames = [
+        #     cv2.imread(frame_paths[timestamp - 1])
+        #     for timestamp in output_timestamps
+        # ]
 
-    # if args.use_skeleton_recog or args.use_skeleton_stdet:
-    #     pose_datasample = [
-    #         pose_datasample[timestamp - 1] for timestamp in output_timestamps
-    #     ]
+        # if args.use_skeleton_recog or args.use_skeleton_stdet:
+        #     pose_datasample = [
+        #         pose_datasample[timestamp - 1] for timestamp in output_timestamps
+        #     ]
 
-    # vis_frames = visualize(args, frames, stdet_results, pose_datasample,
-    #                        action_result)
-    # vid = mpy.ImageSequenceClip(vis_frames, fps=args.output_fps)
-    # vid.write_videofile(args.out_filename)
+        # vis_frames = visualize(args, frames, stdet_results, pose_datasample,
+        #                        action_result)
+        # vid = mpy.ImageSequenceClip(vis_frames, fps=args.output_fps)
+        # vid.write_videofile(args.out_filename)
 
-    tmp_dir.cleanup()
+        tmp_dir.cleanup()
 
 
 if __name__ == '__main__':
